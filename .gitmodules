@@ -1,0 +1,9 @@
+[submodule "whycon"]
+	path = whycon
+	url = https://github.com/arunser/whycon.git
+[submodule "controller_tuner"]
+	path = controller_tuner
+	url = https://github.com/Tse-Choes/controller_tuner.git
+[submodule "mav_comm"]
+	path = mav_comm
+	url = https://github.com/arunser/mav_comm.git
