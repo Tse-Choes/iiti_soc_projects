@@ -62,24 +62,24 @@ class Swift_Pico(Node):
 		self.Ki = []
 		self.Kd = []
 
-		self.Kp.append(self.get_parameter('roll_pid.Kp').get_parameter_value().integer_value)
-		self.Kp.append(self.get_parameter('pitch_pid.Kp').get_parameter_value().integer_value)
-		self.Kp.append(self.get_parameter('throttle_pid.Kp').get_parameter_value().integer_value)
+		self.Kp.append(self.get_parameter('roll_pid.Kp').get_parameter_value().integer_value * 0.03)
+		self.Kp.append(self.get_parameter('pitch_pid.Kp').get_parameter_value().integer_value * 0.03)
+		self.Kp.append(self.get_parameter('throttle_pid.Kp').get_parameter_value().integer_value * 0.03)
 
-		self.Ki.append(self.get_parameter('roll_pid.Ki').get_parameter_value().integer_value)
-		self.Ki.append(self.get_parameter('pitch_pid.Ki').get_parameter_value().integer_value)
-		self.Ki.append(self.get_parameter('throttle_pid.Ki').get_parameter_value().integer_value)
+		self.Ki.append(self.get_parameter('roll_pid.Ki').get_parameter_value().integer_value * 0.008)
+		self.Ki.append(self.get_parameter('pitch_pid.Ki').get_parameter_value().integer_value * 0.008)
+		self.Ki.append(self.get_parameter('throttle_pid.Ki').get_parameter_value().integer_value * 0.008)
 
-		self.Kd.append(self.get_parameter('roll_pid.Kd').get_parameter_value().integer_value)
-		self.Kd.append(self.get_parameter('pitch_pid.Kd').get_parameter_value().integer_value)
-		self.Kd.append(self.get_parameter('throttle_pid.Kd').get_parameter_value().integer_value)
+		self.Kd.append(self.get_parameter('roll_pid.Kd').get_parameter_value().integer_value * 0.6)
+		self.Kd.append(self.get_parameter('pitch_pid.Kd').get_parameter_value().integer_value * 0.6)
+		self.Kd.append(self.get_parameter('throttle_pid.Kd').get_parameter_value().integer_value * 0.6)
 
 		self.get_logger().info(f"Kp: {self.Kp}, Ki: {self.Ki}, Kd: {self.Kd}")
 
 		#-----------------------Add other required variables for pid here ----------------------------------------------
 		self.prev_states= []
 		self.processed_pos = [0.0, 0.0, 0.0]
-		self.prev_pos = self.processed_pos
+		self.prev_pos = list(self.processed_pos)
 		self.vel = [0.0, 0.0, 0.0]
 
 		self.min_value = [1000, 1000, 1000]
@@ -114,7 +114,7 @@ class Swift_Pico(Node):
 		self.arm()  # ARMING THE DRONE
 
 		# Creating a timer to run the pid function periodically, refer ROS 2 tutorials on how to create a publisher subscriber(Python)
-		self.timer = self.create_timer(self.sample_time, self.pid)
+		#self.timer = self.create_timer(self.sample_time, self.pid)
 
 
 	def disarm(self):
@@ -150,7 +150,7 @@ class Swift_Pico(Node):
 			self.prev_states.pop(0) 
 		
 		elif (len(self.prev_states) <= 1):
-			self.prev_pos = list(self.current_pos)
+			self.prev_pos = list(self.current_pos) #initialising pre_pos at start
 			self.get_logger().info("running")
 		
 		sum = [0.0, 0.0, 0.0]
@@ -167,7 +167,8 @@ class Swift_Pico(Node):
 		#self.get_logger().info(str(counter) + " prev: " + str(self.prev_pos) + "  curr: " + str(self.processed_pos) + "  vel: " + str(self.vel))
 		#self.get_logger().info(str(self.prev_states))
 		self.prev_pos = list(self.processed_pos)
-		
+
+		self.pid() #running pid
 		
 		
 		
@@ -227,24 +228,6 @@ class Swift_Pico(Node):
 		self.prev_error = self.pos_error
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	#------------------------------------------------------------------------------------------------------------------------
 		self.command_pub.publish(self.cmd)
 		# calculate throttle error, pitch error and roll error, then publish it accordingly
@@ -262,7 +245,8 @@ def main(args=None):
 		swift_pico.get_logger().info('KeyboardInterrupt, shutting down.\n')
 	finally:
 		swift_pico.destroy_node()
-		rclpy.shutdown()
+		if rclpy.ok():
+			rclpy.shutdown()
 
 
 if __name__ == '__main__':
