@@ -41,7 +41,6 @@ install(
 install(PROGRAMS
   scripts/task1a.py
   src/pico_controller_PID.py
-  src/pico_controller_LQR.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

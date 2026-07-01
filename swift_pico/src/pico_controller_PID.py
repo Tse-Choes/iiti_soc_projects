@@ -11,7 +11,6 @@ This node publishes and subsribes the following topics:
 								/roll_pid
 					
 Rather than using different variables, use list. eg : self.desired_state = [1,2,3], where index corresponds to x,y,z ...rather than defining self.x_desired_state = 1, self.y_desired_state = 2
-CODE MODULARITY AND TECHNIQUES MENTIONED LIKE THIS WILL HELP YOU GAINING MORE MARKS WHILE CODE EVALUATION.	
 '''
 
 # Importing the required libraries
@@ -46,15 +45,41 @@ class Swift_Pico(Node):
 
 		#initial setting of Kp, Kd and ki for [roll, pitch, throttle]. eg: self.Kp[2] corresponds to Kp value in throttle axis
 		#after tuning and computing corresponding PID parameters, change the parameters
+		
+		self.declare_parameter('pitch_pid.Kp', 0)
+		self.declare_parameter('pitch_pid.Ki', 0)
+		self.declare_parameter('pitch_pid.Kd', 0)
 
-		self.Kp = [0, 0, 0]
-		self.Ki = [0, 0, 0]
-		self.Kd = [0, 0, 0]
+		self.declare_parameter('roll_pid.Kp', 0)
+		self.declare_parameter('roll_pid.Ki', 0)
+		self.declare_parameter('roll_pid.Kd', 0)
+
+		self.declare_parameter('throttle_pid.Kp', 0)
+		self.declare_parameter('throttle_pid.Ki', 0)
+		self.declare_parameter('throttle_pid.Kd', 0)
+
+		self.Kp = []
+		self.Ki = []
+		self.Kd = []
+
+		self.Kp.append(self.get_parameter('roll_pid.Kp').get_parameter_value().integer_value)
+		self.Kp.append(self.get_parameter('pitch_pid.Kp').get_parameter_value().integer_value)
+		self.Kp.append(self.get_parameter('throttle_pid.Kp').get_parameter_value().integer_value)
+
+		self.Ki.append(self.get_parameter('roll_pid.Ki').get_parameter_value().integer_value)
+		self.Ki.append(self.get_parameter('pitch_pid.Ki').get_parameter_value().integer_value)
+		self.Ki.append(self.get_parameter('throttle_pid.Ki').get_parameter_value().integer_value)
+
+		self.Kd.append(self.get_parameter('roll_pid.Kd').get_parameter_value().integer_value)
+		self.Kd.append(self.get_parameter('pitch_pid.Kd').get_parameter_value().integer_value)
+		self.Kd.append(self.get_parameter('throttle_pid.Kd').get_parameter_value().integer_value)
+
+		self.get_logger().info(f"Kp: {self.Kp}, Ki: {self.Ki}, Kd: {self.Kd}")
 
 		#-----------------------Add other required variables for pid here ----------------------------------------------
 		self.prev_states= []
-		self.filtered_state = [0.0, 0.0, 0.0]
-		self.prev_pos = self.filtered_state
+		self.processed_pos = [0.0, 0.0, 0.0]
+		self.prev_pos = self.processed_pos
 		self.vel = [0.0, 0.0, 0.0]
 
 		self.min_value = [1000, 1000, 1000]
@@ -114,34 +139,34 @@ class Swift_Pico(Node):
 	# Whycon callback function
 	# The function gets executed each time when /whycon node publishes /whycon/poses 
 	def whycon_callback(self, msg):
-		self.current_state[0] = msg.poses[0].position.x 
+		self.current_pos[0] = msg.poses[0].position.x 
 		#--------------------Set the remaining co-ordinates of the drone from msg----------------------------------------------
-		self.current_state[1] = msg.poses[0].position.y
-		self.current_state[2] = msg.poses[0].position.z
+		self.current_pos[1] = msg.poses[0].position.y
+		self.current_pos[2] = msg.poses[0].position.z
 
 		#average filter -- take average of last 3 pos
-		self.prev_state.append(list(self.current_state))
-		if (len(self.prev_state)>3):
-			self.prev_state.pop(0) 
+		self.prev_states.append(list(self.current_pos))
+		if (len(self.prev_states)>3):
+			self.prev_states.pop(0) 
 		
-		elif (len(self.prev_state) <= 1):
-			self.prev_pos = list(self.current_state)
+		elif (len(self.prev_states) <= 1):
+			self.prev_pos = list(self.current_pos)
 			self.get_logger().info("running")
 		
 		sum = [0.0, 0.0, 0.0]
 		counter = 0
-		for pose in self.prev_state:
+		for pose in self.prev_states:
 			for i in [0, 1, 2]:
 				sum[i] += pose[i]
 			counter += 1
 		for i in [0, 1, 2]:
-			self.filtered_state[i] = sum[i]/counter
+			self.processed_pos[i] = sum[i]/counter
 			
-			self.vel[i] = self.filtered_state[i] - self.prev_pos[i]
+			self.vel[i] = self.processed_pos[i] - self.prev_pos[i]
 		
-		#self.get_logger().info(str(counter) + " prev: " + str(self.prev_pos) + "  curr: " + str(self.filtered_state) + "  vel: " + str(self.vel))
-		#self.get_logger().info(str(self.prev_state))
-		self.prev_pos = list(self.filtered_state)
+		#self.get_logger().info(str(counter) + " prev: " + str(self.prev_pos) + "  curr: " + str(self.processed_pos) + "  vel: " + str(self.vel))
+		#self.get_logger().info(str(self.prev_states))
+		self.prev_pos = list(self.processed_pos)
 		
 		
 		
@@ -176,7 +201,7 @@ class Swift_Pico(Node):
 		#-----------------------------Write the PID algorithm here--------------------------------------------------------------
 
 		# Steps:
-		# 	1. Compute error in each axis. eg: error[0] = self.current_state[0] - self.desired_state[0] ,where error[0] corresponds to error in x...
+		# 	1. Compute error in each axis. eg: error[0] = self.current_pos[0] - self.desired_state[0] ,where error[0] corresponds to error in x...
 		#	2. Compute the error (for proportional), change in error (for derivative) and sum of errors (for integral) in each axis. Refer "Understanding PID.pdf" to understand PID equation.
 		#	3. Calculate the pid output required for each axis. For eg: calcuate self.out_roll, self.out_pitch, etc.
 		#	4. Reduce or add this computed output value on the avg value ie 1500. For eg: self.cmd.rcRoll = 1500 + self.out_roll. LOOK OUT FOR SIGN (+ or -). EXPERIMENT AND FIND THE CORRECT SIGN
@@ -185,9 +210,9 @@ class Swift_Pico(Node):
 		#																														self.cmd.rcPitch = self.max_values[1]
 		#	7. Update previous errors.eg: self.prev_error[1] = error[1] where index 1 corresponds to that of pitch (eg)
 		#	8. Add error_sum
-		self.pos_error.pitch_error = self.filtered_state[0] - self.desired_state[0] 
-		self.pos_error.roll_error = self.filtered_state[1] - self.desired_state[1]
-		self.pos_error.throttle_error = self.filtered_state[2] - self.desired_state[2]
+		self.pos_error.pitch_error = self.processed_pos[0] - self.desired_state[0] 
+		self.pos_error.roll_error = self.processed_pos[1] - self.desired_state[1]
+		self.pos_error.throttle_error = self.processed_pos[2] - self.desired_state[2]
 		
 		p_term = self.Kp[2]*self.pos_error.throttle_error
 		

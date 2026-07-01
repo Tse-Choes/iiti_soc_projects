@@ -11,9 +11,14 @@ def generate_launch_description():
     # Configure ROS nodes for launch
 
     # Setup project paths
-    #pkg_project_bringup = get_package_share_directory('rotors_swift_gazebo')
+    pkg_project_bringup = get_package_share_directory('swift_pico')
     pkg_project_gazebo = get_package_share_directory('swift_pico')
     pkg_ros_gz_sim = get_package_share_directory('ros_gz_sim')
+    pid_config_file = os.path.join(
+        get_package_share_directory('pid_tune'),
+        'resources',
+        'pid_values.yaml'
+    )
 
     # Setup to launch the simulator and Gazebo world
     gz_sim = IncludeLaunchDescription(
@@ -86,6 +91,13 @@ def generate_launch_description():
             ],
             output='screen'
         )
+    pico_controller = Node(
+        package='swift_pico',
+        executable="pico_controller_PID.py",
+        name="pico_controller",
+        parameters=[pid_config_file],
+        output='screen'
+    )
 
     
     return LaunchDescription([
@@ -95,6 +107,7 @@ def generate_launch_description():
         swift_interface,
         whycon,
         image_view,
-        image_transport
+        image_transport,
+        pico_controller
 
     ])
