@@ -2,6 +2,12 @@
 
 This ros2 repo contains the files for IITI SoC Project (Simulation Based Control System Design for Mini Drone). The drone get position feed from an over head waycon camera. The position data is filtered with a simple moving-average filter. For a stable flight PID control for each axis will be used. Right now PID support altitude control only.
 
+<h2>Reqiurement</h2>
+
+- Ubuntu 22.04 LTS
+- Ros2 Humble
+- Gazebo Fortress
+
 <h2>Installation Instructions</h2>
 
 ```
