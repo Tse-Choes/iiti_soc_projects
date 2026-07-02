@@ -33,7 +33,7 @@ class Swift_Pico(Node):
 
 
 		# This corresponds to the setpoint you want the drone to reach or hold
-		self.desired_state = [-7, 0, 25]  # whycon marker at the position of the drone given in the scene. Make the whycon marker associated with position_to_hold drone renderable and make changes accordingly
+		self.desired_state = [ -8, 3, 25]  # whycon marker at the position of the drone given in the scene. Make the whycon marker associated with position_to_hold drone renderable and make changes accordingly
 
 
 		# Declaring a cmd of message type swift_msgs and initializing values
@@ -211,20 +211,27 @@ class Swift_Pico(Node):
 		#																														self.cmd.rcPitch = self.max_values[1]
 		#	7. Update previous errors.eg: self.prev_error[1] = error[1] where index 1 corresponds to that of pitch (eg)
 		#	8. Add error_sum
-		self.pos_error.pitch_error = self.processed_pos[0] - self.desired_state[0] 
-		self.pos_error.roll_error = self.processed_pos[1] - self.desired_state[1]
-		self.pos_error.throttle_error = self.processed_pos[2] - self.desired_state[2]
-		
-		p_term = self.Kp[2]*self.pos_error.throttle_error
-		
-		self.error_sum[2] += self.pos_error.throttle_error
-		self.error_sum[2] = max(min(self.error_sum[2], 1000.0),-1000.0)
-		i_term = self.error_sum[2]*self.Ki[2]
+		fields = ['pitch_error', 'roll_error', 'throttle_error']		#(x, y, z) = (pitch, roll, throtle)
+		i = 0
+		p_term = [0.0, 0.0, 0.0]
+		i_term = [0.0, 0.0, 0.0]
+		d_term = [0.0, 0.0, 0.0]
+		for field in fields:
+			setattr(self.pos_error, field, self.processed_pos[i] - self.desired_state[i])
+			self.error_sum[i] += getattr(self.pos_error, field)
+			self.error_sum[i] = max(min(self.error_sum[i], 1000.0),-1000.0)
 
+			p_term[i] = self.Kp[i]*getattr(self.pos_error, field)
+			i_term[i] = self.error_sum[i]*self.Ki[i]
+			d_term[i] = self.Kd[i]*self.vel[i]
+			i += 1
+			
 		
-		d_term = self.Kd[2]*self.vel[2] 
 		
-		self.cmd.rc_throttle = 1532 + int(p_term + i_term + d_term)
+		self.cmd.rc_pitch = 1500 - int(p_term[0] + i_term[0] + d_term[0])
+		self.cmd.rc_roll = 1500 - int(p_term[1] + i_term[1] + d_term[1])
+		self.cmd.rc_throttle = 1532 + int(p_term[2] + i_term[2] + d_term[2])
+		
 		self.prev_error = self.pos_error
 
 
